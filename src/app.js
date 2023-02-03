@@ -8,20 +8,37 @@ const path = require('path')
 const express = require("express")
 const app = express()
 const hbs = require("hbs")
+const forecast = require('./utils/forecast')
+const geocode = require('./utils/geocode')
+const port = process.env.PORT || 3000
 
 
-const partialsPath = path.join(__dirname,"../templates/partials")
-hbs.registerPartials(partialsPath)
-app.set("view engine", "hbs")
-
-//Aca se accede a la carpeta public
-
+//Defines paths for Express config
 const publicDirectoryPath = path.join(__dirname, '../public')
+const viewsPath = path.join(__dirname, '../templates/views')
+const partialsPath = path.join(__dirname, '../templates/partials')
+
+
+//Setup handlebars engine and views location
+app.set('view engine', 'hbs')
+app.set('views', viewsPath)
+hbs.registerPartials(partialsPath)
+
+//Setup static directory to serve
 app.use(express.static(publicDirectoryPath))
+
+
+
+//Dando acceso al port
+app.listen(port, () => {
+console.log('Server is up on port ' + port)
+})
+
+
 
 //aca se accede a la carpeta templates/views 
 
-const viewsPath = path.join(__dirname, '../templates/views')
+
 app.set('views', viewsPath)
 
 //aca se define las variables title y name para asginarlas en el html
@@ -52,7 +69,34 @@ app.get('', (req, res) => {
 app.get('/weather', (req, res) => {
      // All query string key/value pairs are on req.query
     const address = req.query.address
-    res.send('You provided "' + req.query.address + '" as the address.')
+    if (!address) {
+        return res.send({
+            error: 'You must provide an address'
+        })
+    }
+
+    geocode(address, (error, { latitude, longitude, location } = {}) => {
+        console.log(address)
+        if (error) {
+            return res.send({
+                error: error
+            })
+        }
+
+        forecast(latitude, longitude, (error, forecastData) => {
+            if (error) {
+                return res.send({
+                    error: error
+                })
+            }
+            res.send({
+                forecast: forecastData,
+                location,
+                address: address
+            })
+        })
+    })
+
     })
 
 
@@ -72,7 +116,4 @@ app.get('/weather', (req, res) => {
             errorMessage: 'Page not found.'
         })
         })
-//se le asigna un puerto al servidor
-app.listen(3001, () => {
-    console.log('Server is up on port 3000.')
-    })
+
